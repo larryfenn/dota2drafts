@@ -4,32 +4,51 @@ import urllib.request
 #import urllib2
 import json
 import time
-recordfile = open('record.dat', 'r')
-lastid = recordfile.read()
-recordfile.close()
 
 apikey = open('key.dat', 'r').read()
 
-while (True):
+def accessMatchHistory(lastseqnum):
+	global apikey
+	succeed = False
+	while not succeed:
+		try:
+			matchHist = json.loads(urllib.request.urlopen("https://api.steampowered.com/IDOTA2Match_570/GetMatchHistoryBySequenceNum/V001/?key=" + apikey + "&start_at_match_seq_num=" + str(lastseqnum)).read().decode("utf-8"))
+			succeed = True
+		except urllib.error.HTTPError:
+			time.sleep(1)
+			print("WOAH")
+	return matchHist
+
+def fetch():
+	global apikey
+	recordfile = open('record.dat', 'r')
+	lastseqnum = recordfile.read()
+	recordfile.close()
 	matches = open('data.csv', 'a')
-	data = json.loads(urllib.request.urlopen("https://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/V001/?min_players=10&key=" + apikey + "&skill=3&start_at_match_id=" + lastid).read().decode("utf-8"))
-	#implement a try catch in case of error 503
+	data = accessMatchHistory(lastseqnum)
 	for i in range(100):
-		match_id = data['result']['matches'][i]['match_id']
-		print(match_id)
-		match_data = json.loads(urllib.request.urlopen("https://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/V001/?key=" + apikey + "&match_id=" + str(match_id)).read().decode("utf-8"))
-		if 'picks_bans' in match_data['result']:
+		curmatch = data['result']['matches'][i]
+		match_id = curmatch['match_id']
+		lastseqnum = curmatch['match_seq_num']
+		print(str(i + 1) + "/100 " + str(match_id))
+		if 'picks_bans' in curmatch:
+			print(str(match_id) + " captain's mode")
 			matches.write(str(match_id) + ",")
-			matches.write(str(match_data['result']['radiant_win']) + ",")
-			matches.write(str(match_data['result']['duration']))
-			picklist = match_data['result']['picks_bans']
+			matches.write(str(curmatch['radiant_win']) + ",")
+			matches.write(str(curmatch['duration']))
+			picklist = curmatch['picks_bans']
 			for i in range(len(picklist)):
-				matches.write("," + str(picklist[i]['order']) + "," + str(picklist[i]['is_pick']) + "," + str(picklist[i]['hero_id']) + "," + str(picklist[i]['team']))
+				matches.write("," + str(picklist[i]['is_pick']) + "," + str(picklist[i]['team']) + "," + str(picklist[i]['hero_id']))
 			matches.write("\n")
 	matches.close()
-	lastid = match_id
+	# if any error occured before this point it must have occured at "lastseqnum"
+
 	recordfile = open('record.dat', 'w')
-	recordfile.write(str(lastid))
+	# thus we can safely start at the next one up...
+	recordfile.write(str(lastseqnum + 1))
 	recordfile.close()
 	print("CYCLE FINISHED")
-	time.sleep(5)
+
+while True:
+	fetch()
+#expect the hard crash to occur here after reaching the end of lastseqnum...
