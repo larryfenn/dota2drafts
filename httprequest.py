@@ -4,6 +4,9 @@ import urllib.request
 #import urllib2
 import json
 import time
+import datetime
+
+starttime = datetime.datetime.now()
 
 apikey = open('key.dat', 'r').read()
 
@@ -63,3 +66,7 @@ processFlag = True
 while processFlag:
 	processFlag = fetch()
 	time.sleep(1)
+
+endtime = datetime.datetime.now()
+
+print("Started at " + starttime.isoformat() + "\nEnded at: " + endtime.isoformat())

@@ -57,3 +57,4 @@ docs/_build/
 target/
 /key.dat
 /data.csv
+/record.dat
