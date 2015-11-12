@@ -7,7 +7,7 @@ import time
 
 apikey = open('key.dat', 'r').read()
 
-stopseqnum = 1705492188 # stop at this index
+stopseqnum = 1704492188 # stop at this index
 
 
 def accessMatchHistory(lastseqnum):
