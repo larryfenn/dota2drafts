@@ -6,8 +6,6 @@ import json
 import time
 
 apikey = open('key.dat', 'r').read()
-#1,700,000,000 seq number cap
-#1,690,000,000 last done
 
 stopseqnum = 1705492188 # stop at this index
 
@@ -21,7 +19,7 @@ def accessMatchHistory(lastseqnum):
 			succeed = True
 		except urllib.error.HTTPError:
 			print("WOAH")
-			time.sleep(15)
+			time.sleep(30)
 		except:
 			print("Some other error has occured")
 			time.sleep(30)
@@ -64,3 +62,4 @@ def fetch():
 processFlag = True
 while processFlag:
 	processFlag = fetch()
+	time.sleep(1)
