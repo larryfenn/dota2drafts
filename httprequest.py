@@ -6,6 +6,11 @@ import json
 import time
 
 apikey = open('key.dat', 'r').read()
+#1,700,000,000 seq number cap
+#1,690,000,000 last done
+
+stopseqnum = 1705492188 # stop at this index
+
 
 def accessMatchHistory(lastseqnum):
 	global apikey
@@ -15,8 +20,11 @@ def accessMatchHistory(lastseqnum):
 			matchHist = json.loads(urllib.request.urlopen("https://api.steampowered.com/IDOTA2Match_570/GetMatchHistoryBySequenceNum/V001/?key=" + apikey + "&start_at_match_seq_num=" + str(lastseqnum)).read().decode("utf-8"))
 			succeed = True
 		except urllib.error.HTTPError:
-			time.sleep(1)
 			print("WOAH")
+			time.sleep(15)
+		except:
+			print("Some other error has occured")
+			time.sleep(30)
 	return matchHist
 
 def fetch():
@@ -48,7 +56,11 @@ def fetch():
 	recordfile.write(str(lastseqnum + 1))
 	recordfile.close()
 	print("CYCLE FINISHED")
+	if lastseqnum >= stopseqnum:
+		return False
+	else:
+		return True
 
-while True:
-	fetch()
-#expect the hard crash to occur here after reaching the end of lastseqnum...
+processFlag = True
+while processFlag:
+	processFlag = fetch()
