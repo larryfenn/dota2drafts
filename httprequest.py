@@ -53,7 +53,7 @@ def fetch():
 	# thus we can safely start at the next one up...
 	recordfile.write(str(lastseqnum + 1))
 	recordfile.close()
-	print("CYCLE FINISHED")
+	print("CYCLE FINISHED: " + str(stopseqnum - lastseqnum))
 	if lastseqnum >= stopseqnum:
 		return False
 	else:
