@@ -14,7 +14,6 @@ stopseqnum = 1704492188 # stop at this index
 
 
 def accessMatchHistory(lastseqnum):
-	global apikey
 	succeed = False
 	while not succeed:
 		try:
@@ -29,11 +28,10 @@ def accessMatchHistory(lastseqnum):
 	return matchHist
 
 def fetch():
-	global apikey
 	recordfile = open('record.dat', 'r')
 	lastseqnum = recordfile.read()
 	recordfile.close()
-	matches = open('data.csv', 'a')
+	matches = open('./testing/data.csv', 'a')
 	data = accessMatchHistory(lastseqnum)
 	for i in range(100):
 		curmatch = data['result']['matches'][i]
