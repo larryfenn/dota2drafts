@@ -59,3 +59,8 @@ target/
 /data.csv
 /record.dat
 /capmodedata.csv
+/.Rhistory
+/capmodedatashrt.csv
+/firstban.png
+/top10firstban.png
+/getpickbans.r
