@@ -79,3 +79,5 @@ target/
 /collection/data6.csv
 /firstban.png
 /top10firstban.png
+/.DS_Store
+/output.txt
