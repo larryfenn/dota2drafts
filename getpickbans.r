@@ -30,14 +30,14 @@ parseRow <- function(x) {
 
 
 
-reqPkgs <- c("snow", "parallel", "snowfall")
-new.packages <- reqPkgs[!(reqPkgs %in% installed.packages()[,"Package"])]
-if (length(new.packages)) {install.packages(new.packages)}
+#reqPkgs <- c("snow", "parallel", "snowfall")
+#new.packages <- reqPkgs[!(reqPkgs %in% installed.packages()[,"Package"])]
+#if (length(new.packages)) {install.packages(new.packages)}
 
-library(snow)
-library(parallel)
+#library(snow)
+#library(parallel)
 
-coreCount <- detectCores()
+#coreCount <- detectCores()
 
 raw <- read.csv("capmodedata.csv")
 picksbans <- data.frame(matrix(0, nrow=20, ncol=113), row.names = c(sapply(10:1, function(x) paste(x, "pick", sep="")), sapply(1:10, function(x) paste(x, "ban", sep=""))))
@@ -45,17 +45,19 @@ picksbans <- data.frame(matrix(0, nrow=20, ncol=113), row.names = c(sapply(10:1,
 timing <- proc.time()
 
 parallel <- FALSE
-if (parallel) {
-    cl <- makeCluster(coreCount, type = "SOCK")
-    picksbans <- Reduce('+', parRapply(cl, raw, parseRow))
-    stopCluster(cl)
-} else {
+#if (parallel) {
+#    cl <- makeCluster(coreCount, type = "SOCK")
+#    picksbans <- Reduce('+', parRapply(cl, raw, parseRow))
+#    stopCluster(cl)
+#} else {
     for (i in 1:nrow(raw)) {
         picksbans <-  picksbans + parseRow(raw[i,])
     }
-}
+#}
 timing <- proc.time() - timing
 
 picksbans <- data.frame(picksbans, row.names = c(sapply(10:1, function(x) paste(x, "pick", sep="")), sapply(1:10, function(x) paste(x, "ban", sep=""))))
 
 print(timing)
+
+write.csv(picksbans, "picksbans.csv")
