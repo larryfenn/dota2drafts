@@ -7,37 +7,65 @@ import numpy as np
 np.random.seed(1)
 
 # data I/O
-data = open('input.txt', 'r').read() # should be simple plain text file
-chars = list(set(data))
-data_size, hero_count = len(data), len(chars)
-print 'data has %d characters, %d unique.' % (data_size, hero_count)
-char_to_ix = { ch:i for i,ch in enumerate(chars) }
-ix_to_char = { i:ch for i,ch in enumerate(chars) }
+data = open('test.txt', 'r').read().rstrip() # should be simple plain text file
+trials = data.split('\n')
+data_size, hero_count = len(trials), 112 # number of heroes in dota 2
 
-hidden_size = 100
-seq_length = 25
+def parseTrial(line):
+	"""
+	line: 'string:with:colon:seps'
+	first four components are pick and ban sets
+	last component is time to win (negative if a loss)
+	returns the four hero lists, and the time to win, in a list
+	"""
+	output = list()
+	for l in line.split(':'):
+		output.append(list(map(int, l.split(',')))) # may need to change this for python 2.7
+	return output
+
+def scoring(x):
+	if x > 0:
+		return np.exp(-x/6000)
+	else:
+		return -np.exp(x/6000)
+
+def invscoring(x):
+	if (x >= 0):
+		winner = "radiant"
+	else:
+		winner = "dire"
+	return -6000*np.log(abs(x)), winner
+
+hidden_size = 100 # layers
+seq_length = 1 # grab the next BLA units of whatever
 learning_rate = 1e-1
 
-Wxh = np.random.randn(hidden_size, hero_count)*0.01
+Wxh = np.random.randn(hidden_size, 4*hero_count + 1)*0.01
 Whh = np.random.randn(hidden_size, hidden_size)*0.01
-Why = np.random.randn(hero_count, hidden_size)*0.01
-bh = np.zeroes((hidden_size, 1))
-by = np.zeroes((hero_count, 1))
+Why = np.random.randn(1, hidden_size)*0.01
+bh = np.zeros((hidden_size, 1))
+by = np.zeros((1, 1))
 
-def lossFun(inputs, targets, hprev):
+def lossFun(inputs, hprev):
 	"""
-	inputs, targets integer list
+	inputs: list of separate games to compute over.
 	hprev is previous hidden state
 	return loss, gradients on model parameters, and last hidden state
 	"""
+	targets = list()
 	xs, hs, ys, ps = {}, {}, {}, {}
 	hs[-1] = np.copy(hprev)
 	loss = 0
 	# forward pass
-	for t in xrange(len(inputs)):
-
-		xs[t] = np.zeros((hero_count, 1))
-		xs[t][inputs[t]] = 1
+	for t in range(len(inputs)): # iterate over 'len(inputs)' many separate games
+		xs[t] = np.zeros((4*hero_count + 1, 1))
+		# inputs[t] is a 'trial'; a list of lists.
+		for i in range(len(inputs[t])): # in a game, iterate over the ban/pick lists
+			if i == 4: # special case: the last number is the game time, fed through the objective function
+				targets.append(scoring(inputs[t][i][0]))
+			else: # general case: fill in the hero list
+				for j in inputs[t][i]:
+					xs[t][i*hero_count + j] = 1
 
 		hs[t] = np.tanh(np.dot(Wxh, xs[t]) + np.dot(Whh, hs[t-1]) + bh) #hidden state
 		ys[t] = np.dot(Why, hs[t]) + by #unnormalized log probabilities for next chars
@@ -48,7 +76,7 @@ def lossFun(inputs, targets, hprev):
 	dWxh, dWhh, dWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
 	dbh, dby = np.zeros_like(bh), np.zeros_like(by)
 	dhnext = np.zeros_like(hs[0])
-	for t in reversed(xrange(len(inputs))):
+	for t in reversed(range(len(inputs))):
 		dy = np.copy(ps[t])
 		dy[targets[t]] -= 1 #backprop into y
 		dWhy += np.dot(dy, hs[t].T)
@@ -63,23 +91,19 @@ def lossFun(inputs, targets, hprev):
 		np.clip(dparam, -5, 5, out=dparam) #clip to mitigate exploding gradients
 	return loss, dWxh, dWhh, dWhy, dbh, dby, hs[len(inputs)-1]
 
-def sample(h, seed_ix, n):
+def sample(h, seed):
 	"""
-	sample a sequence of integers from the model
-	h is memory state, seed_ix is seed letter for first time step
+	attempt to predict the outcome based on "seed", the input vector
 	"""
-	x = np.zeros((hero_count, 1))
-	x[seed_ix] = 1
+	x = np.zeros((4*hero_count + 1, 1))
+	for i in range(len(seed) - 1):
+		for j in seed[i]:
+			x[i*hero_count + j] = 1
+	goal = scoring(seed[4][0])
 	ixes = []
-	for t in xrange(n):
-		h = np.tanh(np.dot(Wxh, x) + np.dot(Whh, h) + bh)
-		y = np.dot(Why, h) + by
-		p = np.exp(y) / np.sum(np.exp(y))
-		ix = np.random.choice(range(hero_count), p=p.ravel())
-		x = np.zeros((hero_count, 1))
-		x[ix] = 1
-		ixes.append(ix)
-	return ixes
+	h = np.tanh(np.dot(Wxh, x) + np.dot(Whh, h) + bh)
+	y = np.dot(Why, h) + by
+	return y
 
 n, p = 0, 0
 mWxh, mWhh, mWhy = np.zeros_like(Wxh), np.zeros_like(Whh), np.zeros_like(Why)
@@ -88,22 +112,25 @@ smooth_loss = -np.log(1.0/hero_count)*seq_length # loss at iteration 0
 
 while True:
 	# prepare inputs (sweeping left to right in steps seq_length long)
-	if p + seq_length + 1 >= len(data) or n ==0:
+	if p >= len(trials) or n ==0:
 		hprev = np.zeros((hidden_size, 1)) # reset RNN memory
 		p = 0 # go from start of data
-	inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
-	targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
+		break # instead this should be an exit
+	# inputs should be a list, seq_length long, of game vectors
+	inputs = list()
+	for i in range(seq_length):
+		inputs.append(parseTrial(trials[p + i]))
 
 	# sample from model now and then
 	if n % 100 == 0:
-		sample_ix = sample(hprev, inputs[0], 200)
-		txt = ''.join(ix_to_char[ix] for ix in sample_ix)
-		print '----\n %s \n----' % (txt, )
+		game = [[28,29,93,94,89],[23,14,56,48,82],[72,68,51,87,25],[100,39,3,61,8],[6262]]
+		txt = invscoring(sample(hprev, game)[0][0])
+		print('----\n %s \n----' % (txt, ))
 
 	# forward seq_length characters through the net and fetch gradient
-	loss, dWxh, dWhh, dWhy, dbh, dby, hprev = lossFun(inputs, targets, hprev)
+	loss, dWxh, dWhh, dWhy, dbh, dby, hprev = lossFun(inputs, hprev)
 	smooth_loss = smooth_loss * 0.999 + loss * 0.001
-	if n % 100 == 0 : print 'iter %d, loss %f' % (n, smooth_loss) # print progress
+	if n % 100 == 0 : print('iter %d, loss %f' % (n, smooth_loss)) # print progress
 
 	# perform parameter update with Adagrad
 	for param, dparam, mem in zip([Wxh, Whh, Why, bh, by],
