@@ -39,7 +39,8 @@ httprequest.py will start at the seq num in record.dat and grab matches until a 
 mapper.py, reducer.py
 --------
 
-Components of a MapReduce framework.
+Components of a MapReduce framework. Invoke like `hadoop jar contrib/streaming/hadoop-*streaming*.jar
+-file /dir/mapper.py -mapper /dir/mapper.py -file /dir/reducer.py -reducer /dir/reducer.py -input /dir/* -output /dir/dir-of-output`
 
 mapreduceoutputparse.py
 --------
